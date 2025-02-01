@@ -1,0 +1,559 @@
+package org.firstinspires.ftc.teamcode.Autos;
+
+import androidx.annotation.NonNull;
+import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
+import com.acmerobotics.roadrunner.Action;
+import com.acmerobotics.roadrunner.ParallelAction;
+import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.SequentialAction;
+import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
+import com.acmerobotics.roadrunner.Vector2d;
+import com.acmerobotics.roadrunner.ftc.Actions;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.ColorSensor;
+import com.qualcomm.robotcore.hardware.DcMotor;
+
+import org.firstinspires.ftc.teamcode.MecanumDrive;
+
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.TouchSensor;
+
+@Config
+@Autonomous(name = "testAuto", group = "Autonomous")
+public class testAuto extends LinearOpMode {
+
+    final int sampleDeposit = 2100;
+    final int extendPos = 1000;
+    final int postHangPos = 520;
+    final int preHangPos = 200;
+    final int extension = 470;
+    private double redValue;
+    private double blueValue;
+
+
+    public class Attachments {
+        private DcMotor rightLift, leftLift, hort, intake;
+        private Servo claw, extendDepo, tiltDepo, intakeTilt, wristClaw;
+
+        private TouchSensor vertLimit, hortLimit;
+        private ColorSensor colorChute, blockDetect;
+
+        private long intakeStartTime;
+        private static final long INTAKE_RUN_TIME = 2000;
+
+
+        public void intakeReset() {
+
+            intakeTilt.setPosition(0.65);
+        }
+
+        public void intakePickPos() {
+            intakeTilt.setPosition(0.58);//0.61
+        }
+
+        public void intakeSpit() {
+            intakeTilt.setPosition(0.71);//0.61
+        }
+
+
+        public void OpenClaw() {
+
+            claw.setPosition(0.42);
+        }
+
+
+        public void specPos() {
+            extendDepo.setPosition(0.44);
+            tiltDepo.setPosition(0.12);
+            wristClaw.setPosition(0.8);
+        }
+
+        public void depoCeiling() {
+            extendDepo.setPosition(0.71);
+            tiltDepo.setPosition(0.43);
+        }
+
+        public void depositPos() {
+            tiltDepo.setPosition(0.65);
+            extendDepo.setPosition(0.71);
+            wristClaw.setPosition(0.4);
+        }
+
+        public void pickSpecPos() {
+            tiltDepo.setPosition(0.8);
+            extendDepo.setPosition(0.8);
+            wristClaw.setPosition(0);
+        }
+
+        public void resetPos() {
+            tiltDepo.setPosition(0.07);
+            wristClaw.setPosition(0.8);
+            extendDepo.setPosition(0.645);
+
+        }
+
+
+        public void colorTelmetry() {
+            telemetry.addData("red", "%.2f", redValue);
+            telemetry.addData("blue", "%.2f", blueValue);
+        }
+
+        public Attachments(@NonNull HardwareMap hardwareMap) {
+            //Intake
+            tiltDepo = hardwareMap.get(Servo.class, "tiltDepo");
+            extendDepo = hardwareMap.get(Servo.class, "extendDepo");
+            hort = hardwareMap.get(DcMotorEx.class, "extension");
+            intake = hardwareMap.get(DcMotorEx.class, "intake");
+
+            intakeTilt = hardwareMap.get(Servo.class, "intakeTilt");
+            claw = hardwareMap.get(Servo.class, "claw");
+            wristClaw = hardwareMap.get(Servo.class, "wristClaw");
+
+            //Slides
+            rightLift = hardwareMap.get(DcMotorEx.class, "rightVert");
+            leftLift = hardwareMap.get(DcMotorEx.class, "leftVert");
+
+
+            rightLift.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            leftLift.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+
+            //Limit-Switches
+            vertLimit = hardwareMap.get(TouchSensor.class, "vertSwitch");
+            hortLimit = hardwareMap.get(TouchSensor.class, "hortSwitch");
+
+            //colorChute = hardwareMap.get(ColorSensor.class, "colorChute");
+            blockDetect = hardwareMap.get(ColorSensor.class, "blockDetect");
+
+            rightLift.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            leftLift.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+            // Set motors to run using encoders
+            rightLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            leftLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+
+            hort.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            hort.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+            leftLift.setDirection(DcMotor.Direction.REVERSE);
+
+            intakeReset();
+            resetPos();
+
+        }
+
+
+        public class LiftUp implements Action {
+            private boolean initialized = false;
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet) {
+
+                double pos = rightLift.getCurrentPosition();
+
+                telemetry.addData("Slide Encoder Position", pos);
+                telemetry.update();
+                sleep(100);
+
+                if (pos < sampleDeposit) {
+
+                    rightLift.setPower(1);
+                    leftLift.setPower(1);
+                    telemetry.addData("Slides:", "Reached pos");
+                    telemetry.update();
+                    return true;
+
+                } else {
+
+                    rightLift.setPower(0.13);
+                    leftLift.setPower(0.13);
+
+                    /*
+                     rightLift.setPower(0.13);
+                     leftLift.setPower(-0.13);
+                     */
+                    rightLift.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+                    leftLift.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+                    return false;
+                }
+
+
+            }
+        }
+
+        public Action liftUp() {
+
+            return new LiftUp();
+        }
+
+        public class LiftReset implements Action {
+            private boolean initialized = false;
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet) {
+
+                if (!vertLimit.isPressed()) {
+                    rightLift.setPower(-0.4);
+                    leftLift.setPower(-0.4);
+
+                    return true;
+
+                } else {
+                    rightLift.setPower(0);
+                    leftLift.setPower(0);
+
+                    rightLift.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                    leftLift.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+                    rightLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                    leftLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+                    return false;
+                }
+
+
+            }
+        }
+
+        public Action liftReset() {
+
+            return new LiftReset();
+        }
+
+        // within the Claw class
+        public class CloseClaw implements Action {
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet) {
+                claw.setPosition(0.15);
+                return false;
+            }
+        }
+
+        public Action closeClaw() {
+
+            return new CloseClaw();
+        }
+
+        public class OpenClaw implements Action {
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet) {
+                //edit
+                claw.setPosition(0.36);
+
+                return false;
+            }
+        }
+
+        public Action openClaw() {
+
+            return new OpenClaw();
+        }
+
+
+        public class DepoReset implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                resetPos();
+                return false;
+            }
+        }
+
+        public Action depoReset() {
+
+            return new DepoReset();
+
+        }
+
+        public class DepoUp implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                depoCeiling();
+                sleep(200);
+                return false;
+            }
+        }
+
+        public Action depoUp() {
+
+            return new DepoUp();
+
+        }
+
+        public class DepoSample implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                depositPos();
+                return false;
+            }
+        }
+
+        public Action depoSample() {
+
+            return new DepoSample();
+
+        }
+
+        public class ClipPos implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                specPos();
+                return false;
+            }
+        }
+
+        public Action clipPos() {
+
+            return new ClipPos();
+
+        }
+
+        public class DepoSpecPick implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+
+                tiltDepo.setPosition(0.8);
+                extendDepo.setPosition(0.87);
+                wristClaw.setPosition(0);
+                sleep(1600);
+
+                return false;
+            }
+        }
+
+        public Action depoSpecPick() {
+
+            return new DepoSpecPick();
+
+        }
+
+        public class ExtendHort implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+
+                double pos = hort.getCurrentPosition() *-1;
+                telemetry.addData("Extendo Position", pos);
+                telemetry.addData("Target Extension", extension);
+                telemetry.update();
+
+                if (pos < extension) {
+                    hort.setPower(-0.8);
+                    hort.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+                    return true;
+
+                } else {
+                    telemetry.addData("Motor Stopping", "Position Reached");
+                    hort.setPower(0);
+                    hort.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+
+                    return false;
+                }
+
+            }
+        }
+
+        public Action extendHort() {
+
+            return new ExtendHort();
+        }
+
+        public class retractHorizontal implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+
+                if (!hortLimit.isPressed()) {
+                    hort.setPower(1);
+                    return true;
+                } else {
+                    hort.setPower(0);
+                    telemetry.addData("Hort","Retracted");
+                    telemetry.update();
+
+                    hort.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                    hort.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+                    return false;
+
+
+                }
+            }
+        }
+
+        public Action RetractHorizontal() {
+
+            return new retractHorizontal();
+        }
+
+
+        public class IntakeThaThang implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                intakeTilt.setPosition(0.58);
+                intake.setPower(-1);
+                sleep(1400);
+
+                return false;
+
+
+            }
+        }
+
+        public Action intakeThaThang() {
+
+            return new IntakeThaThang();
+        }
+
+
+        public class SpitThaThang implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+
+
+                intakeTilt.setPosition(0.71);
+                intake.setPower(1);
+                sleep(650);
+
+                return false;
+
+
+            }
+        }
+
+        public Action spitThaThang() {
+
+            return new SpitThaThang();
+        }
+
+    }
+
+
+    @Override
+    public void runOpMode() {
+
+
+        Pose2d initialPose = new Pose2d(10, -65, Math.toRadians(90));
+        MecanumDrive drive = new MecanumDrive(hardwareMap, initialPose);
+        Attachments attachments = new Attachments(hardwareMap);
+
+
+        TrajectoryActionBuilder preLoad = drive.actionBuilder(initialPose).fresh()
+                .setTangent(90)
+                .lineToY(-33)
+                .lineToY(-40);
+
+        TrajectoryActionBuilder Cycle1 = preLoad.endTrajectory().fresh()
+                .setTangent(0)
+                .lineToX(32)
+                .turn(Math.toRadians(-45));
+
+                //intake
+
+
+        TrajectoryActionBuilder Cycle2Spin = Cycle1.endTrajectory().fresh()
+        .turn(Math.toRadians(-110));
+
+
+        TrajectoryActionBuilder Cycle2 = Cycle2Spin.endTrajectory().fresh()
+
+               // .turn(Math.toRadians(-110))
+                .waitSeconds(0.5)
+                //block
+                .turn(Math.toRadians(90))
+                .lineToX(40)
+                // intake
+                .turn(Math.toRadians(-80));
+        TrajectoryActionBuilder Cycle3Spin = Cycle2.endTrajectory().fresh();
+           // .turn(Math.toRadians(-80));
+
+        /*
+
+
+        TrajectoryActionBuilder Cycle3 = Cycle2.endTrajectory().fresh()
+                //block 3
+                .turn(Math.toRadians(70))
+                .lineToX(45)
+                //intake
+                .turn(Math.toRadians(-70));
+
+
+        TrajectoryActionBuilder Cycle1Pick = Cycle3.endTrajectory().fresh()
+                .setTangent(180)
+                .splineTo(new Vector2d(45, -70), Math.toRadians(180));
+
+         */
+
+        Actions.runBlocking(
+        new SequentialAction(
+                //ClipPreload.build(),
+                attachments.depoReset(),
+                attachments.closeClaw()
+
+        )
+
+                );
+
+        waitForStart();
+
+        if (isStopRequested()) return;
+        Actions.runBlocking(
+                new SequentialAction(
+                        new ParallelAction(
+                                //ClipPreload.build(),
+                                preLoad.build(),
+                                attachments.liftUp()
+
+                        ),
+
+                        new SequentialAction(
+                                attachments.clipPos(),
+                                attachments.liftReset()
+                        ),
+
+                        Cycle1.build(),
+
+                        new SequentialAction(
+                                attachments.extendHort(),
+                                attachments.intakeThaThang()
+
+                        ),
+
+                        Cycle2Spin.build(),
+                        attachments.spitThaThang(),
+
+                        new ParallelAction(
+                                Cycle2.build(),
+                                attachments.intakeThaThang()
+                        ),
+
+                        Cycle3Spin.build(),
+                        attachments.spitThaThang()
+
+                        /*
+                        Cycle2.build(),
+                        Cycle3.build(),
+                        Cycle1Pick.build()
+
+                         */
+
+
+                )
+        );
+
+    }
+
+}
+

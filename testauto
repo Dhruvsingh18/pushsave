@@ -6,8 +6,10 @@ import com.acmerobotics.dashboard.telemetry.TelemetryPacket;
 import com.acmerobotics.roadrunner.Action;
 import com.acmerobotics.roadrunner.ParallelAction;
 import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.ProfileAccelConstraint;
 import com.acmerobotics.roadrunner.SequentialAction;
 import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
+import com.acmerobotics.roadrunner.TranslationalVelConstraint;
 import com.acmerobotics.roadrunner.Vector2d;
 import com.acmerobotics.roadrunner.ftc.Actions;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
@@ -23,14 +25,14 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.TouchSensor;
 
 @Config
-@Autonomous(name = "testAuto", group = "Autonomous")
+@Autonomous(name = "LRizzBud", group = "Autonomous")
 public class testAuto extends LinearOpMode {
 
-    final int sampleDeposit = 2100;
+    final int sampleDeposit = 2500;
     final int extendPos = 1000;
     final int postHangPos = 520;
     final int preHangPos = 200;
-    final int extension = 470;
+    final int extension = 600;
     private double redValue;
     private double blueValue;
 
@@ -67,7 +69,7 @@ public class testAuto extends LinearOpMode {
 
 
         public void specPos() {
-            extendDepo.setPosition(0.44);
+            extendDepo.setPosition(0.49); //0.44
             tiltDepo.setPosition(0.12);
             wristClaw.setPosition(0.8);
         }
@@ -135,10 +137,6 @@ public class testAuto extends LinearOpMode {
             // Set motors to run using encoders
             rightLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             leftLift.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
-
-            hort.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-            hort.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
             leftLift.setDirection(DcMotor.Direction.REVERSE);
 
@@ -225,6 +223,33 @@ public class testAuto extends LinearOpMode {
 
             return new LiftReset();
         }
+
+        public class LiftDownClip implements Action {
+            private boolean initialized = false;
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket packet) {
+
+
+                rightLift.setPower(-0.6);
+                leftLift.setPower(-0.6);
+                sleep(1450);
+                rightLift.setPower(0);
+                leftLift.setPower(0);
+
+                return false;
+            }
+
+
+        }
+
+
+        public Action liftDownClip() {
+
+            return new LiftDownClip();
+        }
+
+
 
         // within the Claw class
         public class CloseClaw implements Action {
@@ -342,27 +367,15 @@ public class testAuto extends LinearOpMode {
             @Override
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
 
-                double pos = hort.getCurrentPosition() *-1;
-                telemetry.addData("Extendo Position", pos);
-                telemetry.addData("Target Extension", extension);
-                telemetry.update();
+                intakeTilt.setPosition(0.71);
+                hort.setPower(-1);
+                sleep(1200);
+                return false;
 
-                if (pos < extension) {
-                    hort.setPower(-0.8);
-                    hort.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
-                    return true;
-
-                } else {
-                    telemetry.addData("Motor Stopping", "Position Reached");
-                    hort.setPower(0);
-                    hort.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-
-                    return false;
                 }
 
             }
-        }
+
 
         public Action extendHort() {
 
@@ -382,8 +395,7 @@ public class testAuto extends LinearOpMode {
                     telemetry.addData("Hort","Retracted");
                     telemetry.update();
 
-                    hort.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-                    hort.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
                     return false;
 
 
@@ -403,7 +415,7 @@ public class testAuto extends LinearOpMode {
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
                 intakeTilt.setPosition(0.58);
                 intake.setPower(-1);
-                sleep(1400);
+                sleep(900);
 
                 return false;
 
@@ -417,6 +429,24 @@ public class testAuto extends LinearOpMode {
         }
 
 
+        public class ResetThaThang implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+                intakeTilt.setPosition(0.65);
+                sleep(100);
+                return false;
+            }
+
+
+            }
+
+        public Action resetThaThang() {
+
+            return new ResetThaThang();
+        }
+
+
         public class SpitThaThang implements Action {
 
             @Override
@@ -427,6 +457,7 @@ public class testAuto extends LinearOpMode {
                 intake.setPower(1);
                 sleep(650);
 
+
                 return false;
 
 
@@ -436,6 +467,27 @@ public class testAuto extends LinearOpMode {
         public Action spitThaThang() {
 
             return new SpitThaThang();
+        }
+
+
+
+        public class intakeOff implements Action {
+
+            @Override
+            public boolean run(@NonNull TelemetryPacket telemetryPacket) {
+
+
+                intakeTilt.setPosition(0.71);
+                intake.setPower(0);
+                return false;
+
+
+            }
+        }
+
+        public Action IntakeOff() {
+
+            return new intakeOff();
         }
 
     }
@@ -451,33 +503,52 @@ public class testAuto extends LinearOpMode {
 
 
         TrajectoryActionBuilder preLoad = drive.actionBuilder(initialPose).fresh()
-                .setTangent(90)
-                .lineToY(-33)
-                .lineToY(-40);
+
+                .waitSeconds(0.5)
+                .setTangent(80)
+                //  .lineToY(-35)
+
+                .lineToY(-45, new TranslationalVelConstraint(20), new ProfileAccelConstraint(-20,20));
 
         TrajectoryActionBuilder Cycle1 = preLoad.endTrajectory().fresh()
                 .setTangent(0)
                 .lineToX(32)
                 .turn(Math.toRadians(-45));
 
-                //intake
+        //intake
 
 
         TrajectoryActionBuilder Cycle2Spin = Cycle1.endTrajectory().fresh()
-        .turn(Math.toRadians(-110));
+                .turn(Math.toRadians(-100))
+                .setTangent(90)
+                .lineToY(-50);
+
+
 
 
         TrajectoryActionBuilder Cycle2 = Cycle2Spin.endTrajectory().fresh()
 
-               // .turn(Math.toRadians(-110))
+                // .turn(Math.toRadians(-110))
                 .waitSeconds(0.5)
                 //block
                 .turn(Math.toRadians(90))
                 .lineToX(40)
                 // intake
                 .turn(Math.toRadians(-80));
-        TrajectoryActionBuilder Cycle3Spin = Cycle2.endTrajectory().fresh();
-           // .turn(Math.toRadians(-80));
+        TrajectoryActionBuilder Cycle3Spin = Cycle2.endTrajectory().fresh()
+                .setTangent(Math.toRadians(-90));
+
+        TrajectoryActionBuilder Deposit = Cycle3Spin.endTrajectory().fresh()
+                .lineToYLinearHeading(-55,Math.toRadians(90))
+                .lineToY(-60) //new TranslationalVelConstraint(20), new ProfileAccelConstraint(-20,20)) //RESTRICT VEL
+                .setTangent(Math.toRadians(145))
+                .lineToYLinearHeading(-34,Math.toRadians(90))
+
+
+
+
+                ;
+        // .turn(Math.toRadians(-80));
 
         /*
 
@@ -497,14 +568,15 @@ public class testAuto extends LinearOpMode {
          */
 
         Actions.runBlocking(
-        new SequentialAction(
-                //ClipPreload.build(),
-                attachments.depoReset(),
-                attachments.closeClaw()
+                new SequentialAction(
+                        //ClipPreload.build(),
+                        attachments.depoReset(),
+                        attachments.closeClaw()
 
-        )
 
-                );
+                )
+
+        );
 
         waitForStart();
 
@@ -518,21 +590,31 @@ public class testAuto extends LinearOpMode {
 
                         ),
 
-                        new SequentialAction(
+                        new ParallelAction(
                                 attachments.clipPos(),
+                                attachments.liftDownClip()
+                        ),
+
+                        new ParallelAction(
+                                attachments.openClaw(),
+                                attachments.depoSpecPick(),
                                 attachments.liftReset()
+
                         ),
 
                         Cycle1.build(),
 
                         new SequentialAction(
+                                attachments.IntakeOff(),
                                 attachments.extendHort(),
-                                attachments.intakeThaThang()
+                                attachments.intakeThaThang(),
+                                attachments.resetThaThang()
 
                         ),
 
                         Cycle2Spin.build(),
                         attachments.spitThaThang(),
+                        attachments.IntakeOff(),
 
                         new ParallelAction(
                                 Cycle2.build(),
@@ -540,8 +622,15 @@ public class testAuto extends LinearOpMode {
                         ),
 
                         Cycle3Spin.build(),
-                        attachments.spitThaThang()
+                        attachments.spitThaThang(),
+                        attachments.RetractHorizontal(),
 
+                        new ParallelAction(
+                                attachments.openClaw(),
+                                Deposit.build()
+                        ),
+
+                        attachments.closeClaw()
                         /*
                         Cycle2.build(),
                         Cycle3.build(),
@@ -556,4 +645,3 @@ public class testAuto extends LinearOpMode {
     }
 
 }
-

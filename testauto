@@ -371,7 +371,7 @@ public class testAuto extends LinearOpMode {
             @Override
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
 
-                intakeTilt.setPosition(0.71);
+                intakeReset();
                 hort.setPower(-1);
                 sleep(1200);
                 return false;
@@ -417,7 +417,7 @@ public class testAuto extends LinearOpMode {
 
             @Override
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
-                intakeTilt.setPosition(0.58);
+                intakePickPos();
                 intake.setPower(-1);
                 sleep(900);
 
@@ -437,7 +437,7 @@ public class testAuto extends LinearOpMode {
 
             @Override
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
-                intakeTilt.setPosition(0.65);
+                intakeReset();
                 sleep(100);
                 return false;
             }
@@ -457,7 +457,7 @@ public class testAuto extends LinearOpMode {
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
 
 
-                intakeTilt.setPosition(0.71);
+                intakeSpit();
                 intake.setPower(1);
                 sleep(650);
 
@@ -481,7 +481,7 @@ public class testAuto extends LinearOpMode {
             public boolean run(@NonNull TelemetryPacket telemetryPacket) {
 
 
-                intakeTilt.setPosition(0.71);
+                intakeReset();
                 intake.setPower(0);
                 return false;
 

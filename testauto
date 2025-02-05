@@ -235,9 +235,9 @@ public class testAuto extends LinearOpMode {
             public boolean run(@NonNull TelemetryPacket packet) {
 
 
-                rightLift.setPower(-0.6);
-                leftLift.setPower(-0.6);
-                sleep(1450);
+                rightLift.setPower(-1);
+                leftLift.setPower(-1);
+                sleep(700);
                 rightLift.setPower(0);
                 leftLift.setPower(0);
 
